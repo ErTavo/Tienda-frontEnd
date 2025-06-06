@@ -19,7 +19,7 @@ export default {
 html, body {
   margin: 0;
   padding: 0;
-  background-color: #aef0f8; 
+  background-color: #e8eff0; 
   height: 100%;
   font-family: Arial, sans-serif;
 }
