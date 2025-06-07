@@ -12,8 +12,8 @@
           Menú:
           <select v-model="form.menu">
             <option disabled value="">Seleccione una opción</option>
-            <option v-for="item in menuOptions" :key="item.id" :value="item.id">
-              {{ item.nombre }}
+            <option v-for="item in menuOptions" :key="item.Menu" :value="item.Menu">
+              {{ item.Menu }}
             </option>
           </select>
         </label>
@@ -31,48 +31,43 @@
     <div class="columns">
       <div class="column" v-for="(column, colIndex) in columns" :key="colIndex">
         <h2>{{ column.name }}</h2>
-        <Draggable
-          v-model="column.orders"
-          :group="{ name: 'orders', pull: true, put: true }"
-          class="order-list"
-          @end="onDragEnd($event, colIndex, column.name)"
-          itemKey="id"
-        >
-          <template #item="{ element, index }">
-            <div class="order-card" :key="element.id">
-              <template v-if="isEditing(element.id)">
-                <input
-                  v-model="editTitle"
-                  @keyup.enter="saveEdit(element)"
-                  @keyup.esc="cancelEdit"
-                  @blur="saveEdit(element)"
-                  class="edit-input"
-                  ref="editInput"
-                  aria-label="Editar pedido"
-                />
-              </template>
-              <template v-else>
-                <span @dblclick="startEdit(element)" tabindex="0" @keydown.enter="startEdit(element)">
-                  {{ element.title }}
-                </span>
+        <div class="order-list">
+          <div class="order-card" v-for="(order, index) in column.orders" :key="order.id">
+            <template v-if="isEditing(order.id)">
+              <input v-model="editTitle" @keyup.enter="saveEdit(order)" @keyup.esc="cancelEdit"
+                @blur="saveEdit(order)" class="edit-input" ref="editInput" aria-label="Editar pedido" />
+            </template>
+            <template v-else>
+              <span @dblclick="startEdit(order)" tabindex="0" @keydown.enter="startEdit(order)">
+                {{ order.title }}
+              </span>
+              <div class="order-actions">
+                <!-- Botón de check solo para pendientes -->
+                <button v-if="column.name === 'Pendientes'" 
+                        @click="markAsDelivered(order, colIndex, index)"
+                        class="check-btn"
+                        aria-label="Marcar como entregado">
+                  ✓
+                </button>
                 <button class="delete-btn" @click="deleteOrder(colIndex, index)" aria-label="Eliminar pedido">
                   ×
                 </button>
-              </template>
-            </div>
-          </template>
-        </Draggable>
+              </div>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import Draggable from "vuedraggable";
 import Swal from "sweetalert2";
 
 export default {
-  components: { Draggable },
+  created() {
+    this.verifyAuth();
+  },
   data() {
     return {
       showForm: false,
@@ -80,7 +75,7 @@ export default {
         menu: '',
         name: ''
       },
-      menuOptions: [], 
+      menuOptions: [],
       editingId: null,
       editTitle: '',
       columns: [
@@ -97,6 +92,12 @@ export default {
   },
 
   methods: {
+    verifyAuth() {
+      const authToken = sessionStorage.getItem('authToken');
+      if (!authToken) {
+        this.$router.push('/');
+      }
+    },
     async loadOrdersFromApi() {
       try {
         const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders");
@@ -109,14 +110,16 @@ export default {
           .filter(order => order.estado === "pendiente")
           .map(order => ({
             id: order.orderId,
-            title: `Menú ${order.menu} - ${order.cliente} - pendiente`
+            title: `${order.menu} - ${order.cliente} - ${order.telefono}`,
+            estado: order.estado
           }));
 
         this.columns[1].orders = data
           .filter(order => order.estado === "entregado")
           .map(order => ({
             id: order.orderId,
-            title: `Menú ${order.menu} - ${order.cliente} - entregado`
+            title: `${order.menu} - ${order.cliente}`,
+            estado: order.estado
           }));
       } catch (error) {
         console.error("Error cargando pedidos:", error);
@@ -161,7 +164,7 @@ export default {
         if (response.ok) {
           const newOrder = {
             id: result.orderId,
-            title: `Menú ${payload.menu} - ${payload.cliente} - pendiente`
+            title: `${payload.menu} - ${payload.cliente}`
           };
           this.columns[0].orders.push(newOrder);
           this.showForm = false;
@@ -188,57 +191,131 @@ export default {
       this.form = { menu: '', name: '' };
     },
 
-    async onDragEnd(evt, toColIndex, fromColName) {
-      const movedOrder = this.columns[toColIndex].orders[evt.newIndex];
-      const newEstado = this.columns[toColIndex].name.toLowerCase();
-      const orderId = movedOrder.id;
-
-      if (fromColName === 'Entregados' && newEstado === 'pendientes') {
+async markAsDelivered(order, colIndex, orderIndex) {
+      try {
+        // Confirmar con SweetAlert
         const confirmed = await Swal.fire({
-          title: '¿Seguro que deseas moverlo a Pendiente?',
-          icon: 'warning',
+          title: '¿Marcar como entregado?',
+          text: `¿Confirmas que el pedido "${order.title}" ha sido entregado?`,
+          icon: 'question',
           showCancelButton: true,
-          confirmButtonText: 'Sí',
-          cancelButtonText: 'No',
+          confirmButtonText: 'Sí, entregado',
+          cancelButtonText: 'Cancelar',
         });
 
-        if (!confirmed.isConfirmed) {
-          const item = this.columns[toColIndex].orders.splice(evt.newIndex, 1)[0];
-          this.columns.find(col => col.name === fromColName).orders.splice(evt.oldIndex, 0, item);
-          return;
-        }
-      }
+        if (!confirmed.isConfirmed) return;
 
-      try {
-        await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+        // Actualizar backend
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId, estado: newEstado })
+          body: JSON.stringify({ 
+            orderId: order.id, 
+            estado: 'entregado' 
+          })
         });
 
-        movedOrder.title = movedOrder.title.replace(/pendiente|entregado/i, newEstado);
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status}`);
+        }
+
+        // Actualizar UI
+        const deliveredOrder = {
+          ...order,
+          title: order.title.replace(/- pendiente$/i, '').trim() + '',
+          estado: 'entregado'
+        };
+
+        // Eliminar de pendientes y agregar a entregados
+        this.columns[0].orders.splice(orderIndex, 1);
+        this.columns[1].orders.push(deliveredOrder);
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Entregado!',
+          text: 'El pedido se marcó como entregado',
+          timer: 1500,
+          showConfirmButton: false
+        });
+
       } catch (error) {
-        console.error("Error al actualizar estado:", error);
-        Swal.fire('Error', 'No se pudo actualizar el estado', 'error');
+        console.error("Error al marcar como entregado:", error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.message || 'No se pudo actualizar el estado',
+        });
       }
     },
+
+// Método auxiliar para revertir el drag
+revertDrag(evt, fromColumn, toColumn) {
+  if (!fromColumn || !toColumn || !evt) return;
+  
+  try {
+    const item = toColumn.orders.splice(evt.newIndex, 1)[0];
+    if (item && fromColumn.orders) {
+      fromColumn.orders.splice(evt.oldIndex, 0, item);
+    }
+  } catch (e) {
+    console.error('Error al revertir movimiento:', e);
+  }
+},
 
     async deleteOrder(colIndex, orderIndex) {
-      const confirmed = await Swal.fire({
-        title: '¿Estás seguro de eliminar el pedido?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí',
-        cancelButtonText: 'No',
-      });
+  try {
+    const order = this.columns[colIndex].orders[orderIndex];
+    
+    const confirmed = await Swal.fire({
+      title: '¿Estás seguro de eliminar el pedido?',
+      text: `Pedido: ${order.title}`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+    });
 
-      if (confirmed.isConfirmed) {
-        this.columns[colIndex].orders.splice(orderIndex, 1);
-        if (this.editingId && !this.columns.some(col => col.orders.find(o => o.id === this.editingId))) {
-          this.cancelEdit();
-        }
-      }
-    },
+    if (!confirmed.isConfirmed) return;
+
+    // Actualizar estado en el backend a "eliminado"
+    const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        orderId: order.id, 
+        estado: 'eliminado' 
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al actualizar el estado');
+    }
+
+    // Eliminar de la lista local solo si la API respondió correctamente
+    this.columns[colIndex].orders.splice(orderIndex, 1);
+    
+    // Limpiar edición si estaba editando este elemento
+    if (this.editingId === order.id) {
+      this.cancelEdit();
+    }
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Pedido eliminado',
+      text: 'El pedido se ha marcado como eliminado',
+      timer: 1500,
+      showConfirmButton: false
+    });
+
+  } catch (error) {
+    console.error("Error al eliminar pedido:", error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'No se pudo eliminar el pedido',
+    });
+  }
+},
 
     startEdit(order) {
       this.editingId = order.id;
@@ -279,6 +356,8 @@ export default {
 
 
 <style scoped>
+
+
 .kanban-board {
   min-height: 100vh;
   max-width: 960px;
@@ -466,6 +545,7 @@ select:focus,
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -510,16 +590,103 @@ select:focus,
     flex-direction: column;
     gap: 20px;
   }
+
   .column {
     max-width: 100%;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   }
+
   .add-order {
     flex-direction: column;
   }
+
   .add-order button {
     width: 100%;
   }
+  .order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  margin: 4px 0;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.check-button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+.check-button:hover {
+  background: #45a049;
+}
+}
+.order-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin: 8px 0;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.order-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.check-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.check-btn:hover {
+  background: #45a049;
+}
+
+.delete-btn {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.3s;
+}
+
+.delete-btn:hover {
+  background: #d32f2f;
+}
+.delete-btn {
+  transition: all 0.3s;
+}
+
+.delete-btn.processing {
+  opacity: 0.7;
+  background: #ff9800;
 }
 </style>
-

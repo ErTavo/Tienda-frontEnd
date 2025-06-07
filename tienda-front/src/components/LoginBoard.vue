@@ -36,14 +36,14 @@ export default {
         const response = await fetch("https://tienda-mu-nine.vercel.app/api/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: this.username, password: this.password }),
+          body: JSON.stringify({ user: this.username, pass: this.password }),
         });
 
         if (!response.ok) throw new Error("Credenciales inválidas");
 
         const result = await response.json();
-
-        if (result.success) {
+        if (result.statusCode === 200) {
+          sessionStorage.setItem('authToken', result.hash ? result.hash : 'temphash');
           Swal.fire({
             icon: "success",
             title: "Login exitoso",
@@ -51,7 +51,7 @@ export default {
             showConfirmButton: false,
           });
 
-          this.$router.push('/kanban'); // Redirige con vue-router
+          this.$router.push('/orders');
         } else {
           throw new Error(result.message || "Credenciales inválidas");
         }
