@@ -12,18 +12,14 @@
           Menú:
           <select v-model="form.menu">
             <option disabled value="">Seleccione una opción</option>
-            <option>1</option>
-            <option>2</option>
-            <option>3</option>
+            <option v-for="item in menuOptions" :key="item.Menu" :value="item.Menu">
+              {{ item.Menu }}
+            </option>
           </select>
         </label>
         <label>
           Nombre:
           <input type="text" v-model="form.name" placeholder="Nombre" />
-        </label>
-        <label>
-          Teléfono:
-          <input type="tel" v-model="form.phone" placeholder="Teléfono" />
         </label>
         <div class="form-buttons">
           <button @click="submitForm">Agregar</button>
@@ -35,56 +31,51 @@
     <div class="columns">
       <div class="column" v-for="(column, colIndex) in columns" :key="colIndex">
         <h2>{{ column.name }}</h2>
-        <Draggable
-          v-model="column.orders"
-          :group="{ name: 'orders', pull: true, put: true }"
-          class="order-list"
-          @end="onDragEnd($event, colIndex, column.name)"
-          itemKey="id"
-        >
-          <template #item="{ element, index }">
-            <div class="order-card" :key="element.id">
-              <template v-if="isEditing(element.id)">
-                <input
-                  v-model="editTitle"
-                  @keyup.enter="saveEdit(element)"
-                  @keyup.esc="cancelEdit"
-                  @blur="saveEdit(element)"
-                  class="edit-input"
-                  ref="editInput"
-                  aria-label="Editar pedido"
-                />
-              </template>
-              <template v-else>
-                <span @dblclick="startEdit(element)" tabindex="0" @keydown.enter="startEdit(element)">
-                  {{ element.title }}
-                </span>
+        <div class="order-list">
+          <div class="order-card" v-for="(order, index) in column.orders" :key="order.id">
+            <template v-if="isEditing(order.id)">
+              <input v-model="editTitle" @keyup.enter="saveEdit(order)" @keyup.esc="cancelEdit"
+                @blur="saveEdit(order)" class="edit-input" ref="editInput" aria-label="Editar pedido" />
+            </template>
+            <template v-else>
+              <span @dblclick="startEdit(order)" tabindex="0" @keydown.enter="startEdit(order)">
+                {{ order.title }}
+              </span>
+              <div class="order-actions">
+                <!-- Botón de check solo para pendientes -->
+                <button v-if="column.name === 'Pendientes'" 
+                        @click="markAsDelivered(order, colIndex, index)"
+                        class="check-btn"
+                        aria-label="Marcar como entregado">
+                  ✓
+                </button>
                 <button class="delete-btn" @click="deleteOrder(colIndex, index)" aria-label="Eliminar pedido">
                   ×
                 </button>
-              </template>
-            </div>
-          </template>
-        </Draggable>
+              </div>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import Draggable from "vuedraggable";
 import Swal from "sweetalert2";
 
 export default {
-  components: { Draggable },
+  created() {
+    this.verifyAuth();
+  },
   data() {
     return {
       showForm: false,
       form: {
         menu: '',
-        name: '',
-        phone: ''
+        name: ''
       },
+      menuOptions: [],
       editingId: null,
       editTitle: '',
       columns: [
@@ -97,100 +88,234 @@ export default {
           orders: [],
         },
       ],
-      apiUrl: "https://tu-api-aqui.com/orders", // API real :v
     };
   },
 
   methods: {
+    verifyAuth() {
+      const authToken = sessionStorage.getItem('authToken');
+      if (!authToken) {
+        this.$router.push('/');
+      }
+    },
     async loadOrdersFromApi() {
       try {
-        const response = await fetch(this.apiUrl);
-        if (!response.ok) throw new Error('Error al cargar datos');
-        const data = await response.json();
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders");
+        if (!response.ok) throw new Error("Error al cargar datos");
 
-        const allOrders = this.columns.flatMap(col => col.orders);
-        let maxId = allOrders.length ? Math.max(...allOrders.map(o => o.id)) : 0;
+        const json = await response.json();
+        const data = json.data;
 
-        // pedido recibido al array 
-        data.forEach(item => {
-          maxId++;
-          this.columns[0].orders.push({
-            id: maxId,
-            title: `Menú ${item.menu} - ${item.name} - ${item.phone} - ${item.date}`
-          });
-        });
+        this.columns[0].orders = data
+          .filter(order => order.estado === "pendiente")
+          .map(order => ({
+            id: order.orderId,
+            title: `${order.menu} - ${order.cliente} - ${order.telefono}`,
+            estado: order.estado
+          }));
+
+        this.columns[1].orders = data
+          .filter(order => order.estado === "entregado")
+          .map(order => ({
+            id: order.orderId,
+            title: `${order.menu} - ${order.cliente}`,
+            estado: order.estado
+          }));
       } catch (error) {
-        console.error('Error cargando pedidos:', error);
+        console.error("Error cargando pedidos:", error);
         Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No hay pedidos pendientes',
+          icon: "info",
+          title: "Sin pedidos",
+          text: "No hay pedidos por el momento.",
         });
       }
     },
 
-    async onDragEnd(evt, toColIndex, fromColName) {
-      if (fromColName === 'Entregados' && this.columns[toColIndex].name === 'Pendientes') {
-        const confirmed = await Swal.fire({
-          title: '¿Seguro que deseas moverlo a Pendiente?',
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonText: 'Sí',
-          cancelButtonText: 'No',
+    async loadMenu() {
+      try {
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/menu");
+        const json = await response.json();
+        this.menuOptions = json.data;
+      } catch (error) {
+        console.error("Error cargando menú:", error);
+      }
+    },
+
+    async submitForm() {
+      if (!this.form.menu || !this.form.name) return;
+
+      const payload = {
+        menu: this.form.menu,
+        descripcion: `Pedido de menú ${this.form.menu}`,
+        precio: "20",
+        cliente: this.form.name,
+        telefono: "00000000"
+      };
+
+      try {
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
         });
 
-        if (!confirmed.isConfirmed) {
-          const movedItem = this.columns[toColIndex].orders.splice(evt.newIndex, 1)[0];
-          this.columns.find(col => col.name === fromColName).orders.splice(evt.oldIndex, 0, movedItem);
+        const result = await response.json();
+
+        if (response.ok) {
+          const newOrder = {
+            id: result.orderId,
+            title: `${payload.menu} - ${payload.cliente}`
+          };
+          this.columns[0].orders.push(newOrder);
+          this.showForm = false;
+          this.form = { menu: '', name: '' };
+
+          Swal.fire({
+            icon: 'success',
+            title: '¡Pedido agregado!',
+            text: 'El pedido fue registrado correctamente.',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        } else {
+          throw new Error(result.message || 'Error al agregar pedido');
         }
+      } catch (error) {
+        console.error(error);
+        Swal.fire('Error', error.message, 'error');
       }
-    },
-
-    submitForm() {
-      if (!this.form.menu || !this.form.name || !this.form.phone) return;
-      const allOrders = this.columns.flatMap(col => col.orders);
-      const maxId = allOrders.length ? Math.max(...allOrders.map(o => o.id)) : 0;
-      const newId = maxId + 1;
-      const date = new Date().toLocaleDateString();
-
-      this.columns[0].orders.push({
-        id: newId,
-        title: `Menú ${this.form.menu} - ${this.form.name} - ${this.form.phone} - ${date}`,
-      });
-
-      this.showForm = false;
-      this.form = { menu: '', name: '', phone: '' };
-
-      Swal.fire({
-        icon: 'success',
-        title: '¡Pedido agregado!',
-        text: 'El pedido fue registrado correctamente.',
-        timer: 1500,
-        showConfirmButton: false
-      });
     },
 
     cancelForm() {
       this.showForm = false;
-      this.form = { menu: '', name: '', phone: '' };
+      this.form = { menu: '', name: '' };
     },
 
-    async deleteOrder(colIndex, orderIndex) {
-      const confirmed = await Swal.fire({
-        title: '¿Estás seguro de eliminar el pedido?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí',
-        cancelButtonText: 'No',
-      });
+async markAsDelivered(order, colIndex, orderIndex) {
+      try {
+        // Confirmar con SweetAlert
+        const confirmed = await Swal.fire({
+          title: '¿Marcar como entregado?',
+          text: `¿Confirmas que el pedido "${order.title}" ha sido entregado?`,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, entregado',
+          cancelButtonText: 'Cancelar',
+        });
 
-      if (confirmed.isConfirmed) {
-        this.columns[colIndex].orders.splice(orderIndex, 1);
-        if (this.editingId && !this.columns.some(col => col.orders.find(o => o.id === this.editingId))) {
-          this.cancelEdit();
+        if (!confirmed.isConfirmed) return;
+
+        // Actualizar backend
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            orderId: order.id, 
+            estado: 'entregado' 
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status}`);
         }
+
+        // Actualizar UI
+        const deliveredOrder = {
+          ...order,
+          title: order.title.replace(/- pendiente$/i, '').trim() + '',
+          estado: 'entregado'
+        };
+
+        // Eliminar de pendientes y agregar a entregados
+        this.columns[0].orders.splice(orderIndex, 1);
+        this.columns[1].orders.push(deliveredOrder);
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Entregado!',
+          text: 'El pedido se marcó como entregado',
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+      } catch (error) {
+        console.error("Error al marcar como entregado:", error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.message || 'No se pudo actualizar el estado',
+        });
       }
     },
+
+// Método auxiliar para revertir el drag
+revertDrag(evt, fromColumn, toColumn) {
+  if (!fromColumn || !toColumn || !evt) return;
+  
+  try {
+    const item = toColumn.orders.splice(evt.newIndex, 1)[0];
+    if (item && fromColumn.orders) {
+      fromColumn.orders.splice(evt.oldIndex, 0, item);
+    }
+  } catch (e) {
+    console.error('Error al revertir movimiento:', e);
+  }
+},
+
+    async deleteOrder(colIndex, orderIndex) {
+  try {
+    const order = this.columns[colIndex].orders[orderIndex];
+    
+    const confirmed = await Swal.fire({
+      title: '¿Estás seguro de eliminar el pedido?',
+      text: `Pedido: ${order.title}`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+    });
+
+    if (!confirmed.isConfirmed) return;
+
+    // Actualizar estado en el backend a "eliminado"
+    const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        orderId: order.id, 
+        estado: 'eliminado' 
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al actualizar el estado');
+    }
+
+    // Eliminar de la lista local solo si la API respondió correctamente
+    this.columns[colIndex].orders.splice(orderIndex, 1);
+    
+    // Limpiar edición si estaba editando este elemento
+    if (this.editingId === order.id) {
+      this.cancelEdit();
+    }
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Pedido eliminado',
+      text: 'El pedido se ha marcado como eliminado',
+      timer: 1500,
+      showConfirmButton: false
+    });
+
+  } catch (error) {
+    console.error("Error al eliminar pedido:", error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'No se pudo eliminar el pedido',
+    });
+  }
+},
 
     startEdit(order) {
       this.editingId = order.id;
@@ -218,18 +343,23 @@ export default {
     cancelEdit() {
       this.editingId = null;
       this.editTitle = '';
-    },
+    }
   },
 
   mounted() {
     this.loadOrdersFromApi();
+    this.loadMenu();
   }
 };
 </script>
 
+
+
 <style scoped>
+
+
 .kanban-board {
-  min-height: 500vh;
+  min-height: 100vh;
   max-width: 960px;
   margin: 0 auto;
   padding: 20px 10px;
@@ -265,8 +395,18 @@ export default {
   transition: background-color 0.3s ease;
 }
 
-.add-order button:hover {
+.add-order button:hover,
+.form-buttons button:hover {
   background-color: #4b57a1;
+}
+
+.add-order button:focus,
+input:focus,
+select:focus,
+.form-buttons button:focus,
+.delete-btn:focus {
+  outline: 2px solid #5c6ac4;
+  outline-offset: 2px;
 }
 
 .columns {
@@ -288,6 +428,16 @@ export default {
   flex-direction: column;
 }
 
+/* Columna 1 (Pendientes) */
+.column:nth-child(1) {
+  background-color: #fdfdfd;
+}
+
+/* Columna 2 (Entregados) */
+.column:nth-child(2) {
+  background-color: #fdfdfd;
+}
+
 .order-list {
   background: rgb(255, 255, 255);
   border-radius: 8px;
@@ -296,6 +446,19 @@ export default {
   box-shadow: inset 0 0 5px rgb(0 0 0 / 0.05);
   overflow-y: auto;
   max-height: 400px;
+
+  scrollbar-width: thin;
+  scrollbar-color: #5c6ac4 #f0f0f0;
+}
+
+.order-list::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.order-list::-webkit-scrollbar-thumb {
+  background: #5c6ac4;
+  border-radius: 4px;
 }
 
 .order-card {
@@ -310,12 +473,13 @@ export default {
   font-weight: 500;
   color: #333;
   user-select: none;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .order-card:active {
   cursor: grabbing;
   background-color: #d0d4e6;
+  transform: scale(0.98);
 }
 
 .delete-btn {
@@ -332,6 +496,11 @@ export default {
 
 .delete-btn:hover {
   color: #7a1d1d;
+}
+
+.delete-btn:focus {
+  outline: 2px solid #5c6ac4;
+  outline-offset: 2px;
 }
 
 .edit-input {
@@ -367,7 +536,20 @@ export default {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: stretch; 
+  align-items: stretch;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .form-popup label {
@@ -403,23 +585,108 @@ export default {
   transition: background-color 0.3s ease;
 }
 
-.form-buttons button:hover {
-  background-color: #4b57a1;
-}
-
 @media (max-width: 600px) {
   .columns {
     flex-direction: column;
     gap: 20px;
   }
+
   .column {
     max-width: 100%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   }
+
   .add-order {
     flex-direction: column;
   }
+
   .add-order button {
     width: 100%;
   }
+  .order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  margin: 4px 0;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.check-button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+.check-button:hover {
+  background: #45a049;
+}
+}
+.order-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin: 8px 0;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.order-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.check-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.check-btn:hover {
+  background: #45a049;
+}
+
+.delete-btn {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.3s;
+}
+
+.delete-btn:hover {
+  background: #d32f2f;
+}
+.delete-btn {
+  transition: all 0.3s;
+}
+
+.delete-btn.processing {
+  opacity: 0.7;
+  background: #ff9800;
 }
 </style>
