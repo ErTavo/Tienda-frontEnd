@@ -12,18 +12,14 @@
           Menú:
           <select v-model="form.menu">
             <option disabled value="">Seleccione una opción</option>
-            <option>1</option>
-            <option>2</option>
-            <option>3</option>
+            <option v-for="item in menuOptions" :key="item.id" :value="item.id">
+              {{ item.nombre }}
+            </option>
           </select>
         </label>
         <label>
           Nombre:
           <input type="text" v-model="form.name" placeholder="Nombre" />
-        </label>
-        <label>
-          Teléfono:
-          <input type="tel" v-model="form.phone" placeholder="Teléfono" />
         </label>
         <div class="form-buttons">
           <button @click="submitForm">Agregar</button>
@@ -82,9 +78,9 @@ export default {
       showForm: false,
       form: {
         menu: '',
-        name: '',
-        phone: ''
+        name: ''
       },
+      menuOptions: [], 
       editingId: null,
       editTitle: '',
       columns: [
@@ -97,40 +93,107 @@ export default {
           orders: [],
         },
       ],
-      apiUrl: "https://tu-api-aqui.com/orders", // API real :v
     };
   },
 
   methods: {
     async loadOrdersFromApi() {
       try {
-        const response = await fetch(this.apiUrl);
-        if (!response.ok) throw new Error('Error al cargar datos');
-        const data = await response.json();
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders");
+        if (!response.ok) throw new Error("Error al cargar datos");
 
-        const allOrders = this.columns.flatMap(col => col.orders);
-        let maxId = allOrders.length ? Math.max(...allOrders.map(o => o.id)) : 0;
+        const json = await response.json();
+        const data = json.data;
 
-        // pedido recibido al array 
-        data.forEach(item => {
-          maxId++;
-          this.columns[0].orders.push({
-            id: maxId,
-            title: `Menú ${item.menu} - ${item.name} - ${item.phone} - ${item.date}`
-          });
-        });
+        this.columns[0].orders = data
+          .filter(order => order.estado === "pendiente")
+          .map(order => ({
+            id: order.orderId,
+            title: `Menú ${order.menu} - ${order.cliente} - pendiente`
+          }));
+
+        this.columns[1].orders = data
+          .filter(order => order.estado === "entregado")
+          .map(order => ({
+            id: order.orderId,
+            title: `Menú ${order.menu} - ${order.cliente} - entregado`
+          }));
       } catch (error) {
-        console.error('Error cargando pedidos:', error);
+        console.error("Error cargando pedidos:", error);
         Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No hay pedidos pendientes',
+          icon: "info",
+          title: "Sin pedidos",
+          text: "No hay pedidos por el momento.",
         });
       }
     },
 
+    async loadMenu() {
+      try {
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/menu");
+        const json = await response.json();
+        this.menuOptions = json.data;
+      } catch (error) {
+        console.error("Error cargando menú:", error);
+      }
+    },
+
+    async submitForm() {
+      if (!this.form.menu || !this.form.name) return;
+
+      const payload = {
+        menu: this.form.menu,
+        descripcion: `Pedido de menú ${this.form.menu}`,
+        precio: "20",
+        cliente: this.form.name,
+        telefono: "00000000"
+      };
+
+      try {
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          const newOrder = {
+            id: result.orderId,
+            title: `Menú ${payload.menu} - ${payload.cliente} - pendiente`
+          };
+          this.columns[0].orders.push(newOrder);
+          this.showForm = false;
+          this.form = { menu: '', name: '' };
+
+          Swal.fire({
+            icon: 'success',
+            title: '¡Pedido agregado!',
+            text: 'El pedido fue registrado correctamente.',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        } else {
+          throw new Error(result.message || 'Error al agregar pedido');
+        }
+      } catch (error) {
+        console.error(error);
+        Swal.fire('Error', error.message, 'error');
+      }
+    },
+
+    cancelForm() {
+      this.showForm = false;
+      this.form = { menu: '', name: '' };
+    },
+
     async onDragEnd(evt, toColIndex, fromColName) {
-      if (fromColName === 'Entregados' && this.columns[toColIndex].name === 'Pendientes') {
+      const movedOrder = this.columns[toColIndex].orders[evt.newIndex];
+      const newEstado = this.columns[toColIndex].name.toLowerCase();
+      const orderId = movedOrder.id;
+
+      if (fromColName === 'Entregados' && newEstado === 'pendientes') {
         const confirmed = await Swal.fire({
           title: '¿Seguro que deseas moverlo a Pendiente?',
           icon: 'warning',
@@ -140,39 +203,24 @@ export default {
         });
 
         if (!confirmed.isConfirmed) {
-          const movedItem = this.columns[toColIndex].orders.splice(evt.newIndex, 1)[0];
-          this.columns.find(col => col.name === fromColName).orders.splice(evt.oldIndex, 0, movedItem);
+          const item = this.columns[toColIndex].orders.splice(evt.newIndex, 1)[0];
+          this.columns.find(col => col.name === fromColName).orders.splice(evt.oldIndex, 0, item);
+          return;
         }
       }
-    },
 
-    submitForm() {
-      if (!this.form.menu || !this.form.name || !this.form.phone) return;
-      const allOrders = this.columns.flatMap(col => col.orders);
-      const maxId = allOrders.length ? Math.max(...allOrders.map(o => o.id)) : 0;
-      const newId = maxId + 1;
-      const date = new Date().toLocaleDateString();
+      try {
+        await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId, estado: newEstado })
+        });
 
-      this.columns[0].orders.push({
-        id: newId,
-        title: `Menú ${this.form.menu} - ${this.form.name} - ${this.form.phone} - ${date}`,
-      });
-
-      this.showForm = false;
-      this.form = { menu: '', name: '', phone: '' };
-
-      Swal.fire({
-        icon: 'success',
-        title: '¡Pedido agregado!',
-        text: 'El pedido fue registrado correctamente.',
-        timer: 1500,
-        showConfirmButton: false
-      });
-    },
-
-    cancelForm() {
-      this.showForm = false;
-      this.form = { menu: '', name: '', phone: '' };
+        movedOrder.title = movedOrder.title.replace(/pendiente|entregado/i, newEstado);
+      } catch (error) {
+        console.error("Error al actualizar estado:", error);
+        Swal.fire('Error', 'No se pudo actualizar el estado', 'error');
+      }
     },
 
     async deleteOrder(colIndex, orderIndex) {
@@ -218,18 +266,21 @@ export default {
     cancelEdit() {
       this.editingId = null;
       this.editTitle = '';
-    },
+    }
   },
 
   mounted() {
     this.loadOrdersFromApi();
+    this.loadMenu();
   }
 };
 </script>
 
+
+
 <style scoped>
 .kanban-board {
-  min-height: 500vh;
+  min-height: 100vh;
   max-width: 960px;
   margin: 0 auto;
   padding: 20px 10px;
@@ -265,8 +316,18 @@ export default {
   transition: background-color 0.3s ease;
 }
 
-.add-order button:hover {
+.add-order button:hover,
+.form-buttons button:hover {
   background-color: #4b57a1;
+}
+
+.add-order button:focus,
+input:focus,
+select:focus,
+.form-buttons button:focus,
+.delete-btn:focus {
+  outline: 2px solid #5c6ac4;
+  outline-offset: 2px;
 }
 
 .columns {
@@ -288,6 +349,16 @@ export default {
   flex-direction: column;
 }
 
+/* Columna 1 (Pendientes) */
+.column:nth-child(1) {
+  background-color: #fdfdfd;
+}
+
+/* Columna 2 (Entregados) */
+.column:nth-child(2) {
+  background-color: #fdfdfd;
+}
+
 .order-list {
   background: rgb(255, 255, 255);
   border-radius: 8px;
@@ -296,6 +367,19 @@ export default {
   box-shadow: inset 0 0 5px rgb(0 0 0 / 0.05);
   overflow-y: auto;
   max-height: 400px;
+
+  scrollbar-width: thin;
+  scrollbar-color: #5c6ac4 #f0f0f0;
+}
+
+.order-list::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.order-list::-webkit-scrollbar-thumb {
+  background: #5c6ac4;
+  border-radius: 4px;
 }
 
 .order-card {
@@ -310,12 +394,13 @@ export default {
   font-weight: 500;
   color: #333;
   user-select: none;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .order-card:active {
   cursor: grabbing;
   background-color: #d0d4e6;
+  transform: scale(0.98);
 }
 
 .delete-btn {
@@ -332,6 +417,11 @@ export default {
 
 .delete-btn:hover {
   color: #7a1d1d;
+}
+
+.delete-btn:focus {
+  outline: 2px solid #5c6ac4;
+  outline-offset: 2px;
 }
 
 .edit-input {
@@ -367,7 +457,19 @@ export default {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: stretch; 
+  align-items: stretch;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .form-popup label {
@@ -403,10 +505,6 @@ export default {
   transition: background-color 0.3s ease;
 }
 
-.form-buttons button:hover {
-  background-color: #4b57a1;
-}
-
 @media (max-width: 600px) {
   .columns {
     flex-direction: column;
@@ -414,6 +512,7 @@ export default {
   }
   .column {
     max-width: 100%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   }
   .add-order {
     flex-direction: column;
@@ -423,3 +522,4 @@ export default {
   }
 }
 </style>
+
