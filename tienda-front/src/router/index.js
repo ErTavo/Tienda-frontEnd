@@ -5,7 +5,7 @@ import KanbanBoard from '../components/KanbanBoard.vue';
 const routes = [
   { path: '/', redirect: '/login' },
   { path: '/login', component: LoginBoard },
-  { path: '/kanban', component: KanbanBoard },
+  { path: '/orders', component: KanbanBoard },
 ];
 
 const router = createRouter({
