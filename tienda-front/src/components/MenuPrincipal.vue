@@ -45,9 +45,9 @@
 
         <h4 class="mb-3 text-center">Nuevo Pedido</h4>
 
-        <p><strong>Menú seleccionado:</strong> {{ selectOrder.Descripcion }}</p>
+        <p><strong>Menú seleccionado:</strong> {{ selectedOrder.Descripcion }}</p>
 
-        <p><strong>Precio:</strong> Q.{{ selectOrder.precio }}.00</p>
+        <p><strong>Precio:</strong> Q.{{ selectedOrder.precio }}.00</p>
 
 
 
@@ -93,9 +93,9 @@
 
     <h4 class="mb-3 text-center">Confirmar pedido</h4>
     <p>¿Deseas confirmar tu pedido?</p>
-    <p><strong>Menú:</strong> {{ selectOrder.Menu }}</p>
-    <p><strong>Descripción:</strong> {{ selectOrder.Descripcion }}</p>
-    <p><strong>Precio:</strong> Q.{{ selectOrder.precio }}.00</p>
+    <p><strong>Menú:</strong> {{ selectedOrder.Menu }}</p>
+    <p><strong>Descripción:</strong> {{ selectedOrder.Descripcion }}</p>
+    <p><strong>Precio:</strong> Q.{{ selectedOrder.precio }}.00</p>
     <p><strong>Nombre: </strong> {{ form.name }}</p>
     <p><strong>Teléfono: </strong> {{ form.phone }}</p>
 
@@ -143,17 +143,17 @@ export default {
 methods: {
   selectOrder(order) {  
     this.showForm = true;
-    this.selectOrder = order;
-    console.log(this.selectOrder);
+    this.selectedOrder = order;
+    console.log(this.selectedOrder);
 
   },
    async submitForm() {
       if (!this.form.phone || !this.form.name) return;
 
       const payload = {
-        menu: this.selectOrder.Menu,
-        descripcion: this.selectOrder.Descripcion,
-        precio: this.selectOrder.precio,
+        menu: this.selectedOrder.Menu,
+        descripcion: this.selectedOrder.Descripcion,
+        precio: this.selectedOrder.precio,
         cliente: this.form.name,
         telefono: this.form.phone
       };
@@ -176,6 +176,9 @@ methods: {
             showConfirmButton: false
           });
           this.showFormNotification = false;
+
+            this.form = { name: '', phone: '' };
+            this.selectedOrder = null;
         } else {
           throw new Error(result.message || 'Error al agregar pedido');
         }
@@ -187,7 +190,7 @@ methods: {
 async notificationForm() {
     this.submitForm();
     const numero = 58166694;
-    const mensaje = `Hola, soy ${this.form.name}, realicé un pedido de ${this.selectOrder.menu}, me podrías indicar a qué hora puedo recogerlo.`;
+    const mensaje = `Hola, soy **${this.form.name}**, realicé un pedido de ${this.selectedOrder.Menu}, me podrías indicar a qué hora puedo recogerlo.`;
     const url = `https://wa.me/502${numero}?text=${mensaje}`; // estructura correcta del link
     console.log(url);
     window.open(url, '_blank'); // abre en nueva pestaña
@@ -195,6 +198,9 @@ async notificationForm() {
     cancelForm() {
       this.showForm = false;
       this.form = { menu: '', name: '' };
+      this.showFormNotification = false;
+      this.form = { name: '', phone: '' };
+      this.selectedOrder = null;
     },
  async changeNotification() {
 
