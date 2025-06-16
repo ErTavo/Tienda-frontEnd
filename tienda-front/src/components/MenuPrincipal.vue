@@ -189,8 +189,8 @@ methods: {
     },
 async notificationForm() {
     this.submitForm();
-    const numero = 58166694;
-    const mensaje = `Hola, soy **${this.form.name}**, realicé un pedido de ${this.selectedOrder.Menu}, me podrías indicar a qué hora puedo recogerlo.`;
+    const numero = 56786354;
+    const mensaje = `Hola, soy *${this.form.name}* y realicé un pedido de ${this.selectedOrder.Menu}}, me podrías indicar a qué hora puedo recogerlo. El total del pedido seria Q. ${this.selectedOrder.precio}`;
     const url = `https://wa.me/502${numero}?text=${mensaje}`; // estructura correcta del link
     console.log(url);
     window.open(url, '_blank'); // abre en nueva pestaña
