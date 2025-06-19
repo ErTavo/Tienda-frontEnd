@@ -17,10 +17,22 @@
             </option>
           </select>
         </label>
+
         <label>
           Nombre:
           <input type="text" v-model="form.name" placeholder="Nombre" />
         </label>
+
+        <label>
+          Hora de entrega:
+          <select v-model="form.horaEntrega">
+            <option disabled value="">Seleccione una hora</option>
+            <option v-for="hora in horasDisponibles" :key="hora" :value="hora">
+              {{ hora }}
+            </option>
+          </select>
+        </label>
+
         <div class="form-buttons">
           <button @click="submitForm">Agregar</button>
           <button @click="cancelForm">Cancelar</button>
@@ -31,6 +43,7 @@
     <div class="columns">
       <div class="column" v-for="(column, colIndex) in columns" :key="colIndex">
         <h2>{{ column.name }}</h2>
+<<<<<<< Updated upstream
         <Draggable
           v-model="column.orders"
           :group="{ name: 'orders', pull: true, put: true }"
@@ -55,6 +68,25 @@
                 <span @dblclick="startEdit(element)" tabindex="0" @keydown.enter="startEdit(element)">
                   {{ element.title }}
                 </span>
+=======
+        <div class="order-list">
+          <div class="order-card" v-for="(order, index) in column.orders" :key="order.id">
+            <template v-if="isEditing(order.id)">
+              <input v-model="editTitle" @keyup.enter="saveEdit(order)" @keyup.esc="cancelEdit"
+                @blur="saveEdit(order)" class="edit-input" ref="editInput" aria-label="Editar pedido" />
+            </template>
+            <template v-else>
+              <span @dblclick="startEdit(order)" tabindex="0" @keydown.enter="startEdit(order)">
+                {{ order.title }}
+              </span>
+              <div class="order-actions">
+                <button v-if="column.name === 'Pendientes'" 
+                        @click="markAsDelivered(order, colIndex, index)"
+                        class="check-btn"
+                        aria-label="Marcar como entregado">
+                  ✓
+                </button>
+>>>>>>> Stashed changes
                 <button class="delete-btn" @click="deleteOrder(colIndex, index)" aria-label="Eliminar pedido">
                   ×
                 </button>
@@ -78,9 +110,15 @@ export default {
       showForm: false,
       form: {
         menu: '',
-        name: ''
+        name: '',
+        horaEntrega: ''
       },
+<<<<<<< Updated upstream
       menuOptions: [], 
+=======
+      horasDisponibles: [],
+      menuOptions: [],
+>>>>>>> Stashed changes
       editingId: null,
       editTitle: '',
       columns: [
@@ -97,6 +135,16 @@ export default {
   },
 
   methods: {
+<<<<<<< Updated upstream
+=======
+    verifyAuth() {
+      const authToken = sessionStorage.getItem('authToken');
+      if (!authToken) {
+        this.$router.push('/');
+      }
+    },
+
+>>>>>>> Stashed changes
     async loadOrdersFromApi() {
       try {
         const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders");
@@ -109,14 +157,24 @@ export default {
           .filter(order => order.estado === "pendiente")
           .map(order => ({
             id: order.orderId,
+<<<<<<< Updated upstream
             title: `Menú ${order.menu} - ${order.cliente} - pendiente`
+=======
+            title: `${order.menu} - ${order.cliente} - ${order.telefono} - ${order.horaEntrega}`,
+            estado: order.estado
+>>>>>>> Stashed changes
           }));
 
         this.columns[1].orders = data
           .filter(order => order.estado === "entregado")
           .map(order => ({
             id: order.orderId,
+<<<<<<< Updated upstream
             title: `Menú ${order.menu} - ${order.cliente} - entregado`
+=======
+            title: `${order.menu} - ${order.cliente} - ${order.horaEntrega}`,
+            estado: order.estado
+>>>>>>> Stashed changes
           }));
       } catch (error) {
         console.error("Error cargando pedidos:", error);
@@ -138,15 +196,32 @@ export default {
       }
     },
 
+    generarHoras() {
+      const horas = [];
+      const inicio = 8 * 60;
+      const fin = 18 * 60;
+
+      for (let min = inicio; min <= fin; min += 30) {
+        const hora = Math.floor(min / 60);
+        const minuto = min % 60;
+        const hora12 = hora % 12 === 0 ? 12 : hora % 12;
+        const ampm = hora < 12 ? 'AM' : 'PM';
+        horas.push(`${hora12}:${minuto.toString().padStart(2, '0')} ${ampm}`);
+      }
+
+      this.horasDisponibles = horas;
+    },
+
     async submitForm() {
-      if (!this.form.menu || !this.form.name) return;
+      if (!this.form.menu || !this.form.name || !this.form.horaEntrega) return;
 
       const payload = {
         menu: this.form.menu,
         descripcion: `Pedido de menú ${this.form.menu}`,
         precio: "20",
         cliente: this.form.name,
-        telefono: "00000000"
+        telefono: "00000000",
+        horaEntrega: this.form.horaEntrega
       };
 
       try {
@@ -161,11 +236,16 @@ export default {
         if (response.ok) {
           const newOrder = {
             id: result.orderId,
+<<<<<<< Updated upstream
             title: `Menú ${payload.menu} - ${payload.cliente} - pendiente`
+=======
+            title: `${payload.menu} - ${payload.cliente} - ${payload.horaEntrega}`,
+            estado: 'pendiente'
+>>>>>>> Stashed changes
           };
           this.columns[0].orders.push(newOrder);
           this.showForm = false;
-          this.form = { menu: '', name: '' };
+          this.form = { menu: '', name: '', horaEntrega: '' };
 
           Swal.fire({
             icon: 'success',
@@ -185,15 +265,20 @@ export default {
 
     cancelForm() {
       this.showForm = false;
-      this.form = { menu: '', name: '' };
+      this.form = { menu: '', name: '', horaEntrega: '' };
     },
 
+<<<<<<< Updated upstream
     async onDragEnd(evt, toColIndex, fromColName) {
       const movedOrder = this.columns[toColIndex].orders[evt.newIndex];
       const newEstado = this.columns[toColIndex].name.toLowerCase();
       const orderId = movedOrder.id;
 
       if (fromColName === 'Entregados' && newEstado === 'pendientes') {
+=======
+    async markAsDelivered(order, colIndex, orderIndex) {
+      try {
+>>>>>>> Stashed changes
         const confirmed = await Swal.fire({
           title: '¿Seguro que deseas moverlo a Pendiente?',
           icon: 'warning',
@@ -209,11 +294,39 @@ export default {
         }
       }
 
+<<<<<<< Updated upstream
       try {
         await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId, estado: newEstado })
+=======
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            orderId: order.id, 
+            estado: 'entregado' 
+          })
+        });
+
+        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+
+        const deliveredOrder = {
+          ...order,
+          estado: 'entregado'
+        };
+
+        this.columns[0].orders.splice(orderIndex, 1);
+        this.columns[1].orders.push(deliveredOrder);
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Entregado!',
+          text: 'El pedido se marcó como entregado',
+          timer: 1500,
+          showConfirmButton: false
+>>>>>>> Stashed changes
         });
 
         movedOrder.title = movedOrder.title.replace(/pendiente|entregado/i, newEstado);
@@ -224,6 +337,7 @@ export default {
     },
 
     async deleteOrder(colIndex, orderIndex) {
+<<<<<<< Updated upstream
       const confirmed = await Swal.fire({
         title: '¿Estás seguro de eliminar el pedido?',
         icon: 'warning',
@@ -237,6 +351,52 @@ export default {
         if (this.editingId && !this.columns.some(col => col.orders.find(o => o.id === this.editingId))) {
           this.cancelEdit();
         }
+=======
+      try {
+        const order = this.columns[colIndex].orders[orderIndex];
+
+        const confirmed = await Swal.fire({
+          title: '¿Estás seguro de eliminar el pedido?',
+          text: `Pedido: ${order.title}`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, eliminar',
+          cancelButtonText: 'Cancelar',
+        });
+
+        if (!confirmed.isConfirmed) return;
+
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            orderId: order.id, 
+            estado: 'eliminado' 
+          })
+        });
+
+        if (!response.ok) throw new Error('Error al actualizar el estado');
+
+        this.columns[colIndex].orders.splice(orderIndex, 1);
+
+        if (this.editingId === order.id) this.cancelEdit();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Pedido eliminado',
+          text: 'El pedido se ha marcado como eliminado',
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+      } catch (error) {
+        console.error("Error al eliminar pedido:", error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo eliminar el pedido',
+        });
+>>>>>>> Stashed changes
       }
     },
 
@@ -272,9 +432,11 @@ export default {
   mounted() {
     this.loadOrdersFromApi();
     this.loadMenu();
+    this.generarHoras();
   }
 };
 </script>
+
 
 
 

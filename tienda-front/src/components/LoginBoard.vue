@@ -10,6 +10,7 @@
 
       <button type="submit" :disabled="loading">{{ loading ? 'Ingresando...' : 'Entrar' }}</button>
     </form>
+    <button type="button" @click="goToMenu">Ir al Menú Principal</button>
   </div>
 </template>
 
@@ -61,6 +62,9 @@ export default {
         this.loading = false;
       }
     },
+    goToMenu() {
+      this.$router.push('/menu');
+    }
   },
 };
 </script>
@@ -117,6 +121,7 @@ button {
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  margin-top: 10px;
 }
 
 button:disabled {
@@ -126,6 +131,14 @@ button:disabled {
 
 button:hover:not(:disabled) {
   background-color: #4b57a1;
+}
+
+.menu-btn {
+  background-color: #888;
+}
+
+.menu-btn:hover {
+  background-color: #666;
 }
 </style>
 
