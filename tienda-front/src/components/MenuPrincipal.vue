@@ -69,6 +69,19 @@
 
         </div>
 
+        <div class="mb-3">
+
+          <label class="form-label">Horario de entrega</label>
+
+          <select class="form-control" v-model="form.hora" placeholder="Hora">
+
+           <option v-for="item in horaPedido" :key="item" :value="item ">
+              {{ item }}
+            </option>
+          </select>
+
+        </div>
+
 
 
         <div class="d-flex justify-content-between">
@@ -98,6 +111,7 @@
     <p><strong>Precio:</strong> Q.{{ selectedOrder.precio }}.00</p>
     <p><strong>Nombre: </strong> {{ form.name }}</p>
     <p><strong>Teléfono: </strong> {{ form.phone }}</p>
+     <p><strong>Horario de entrega: </strong> {{ form.hora }}</p>
 
     <div class="d-flex justify-content-between gap-3">
 
@@ -136,8 +150,10 @@ export default {
         /*menu: '',*/
         name: '',
         phone: '',
+        hora:  '',
       },
       menuOptions: [],
+      horaPedido: [],
     };
   },
 methods: {
@@ -155,7 +171,8 @@ methods: {
         descripcion: this.selectedOrder.Descripcion,
         precio: this.selectedOrder.precio,
         cliente: this.form.name,
-        telefono: this.form.phone
+        telefono: this.form.phone,
+        horaEntrega : this.form.hora
       };
 
       try {
@@ -177,7 +194,7 @@ methods: {
           });
           this.showFormNotification = false;
 
-            this.form = { name: '', phone: '' };
+            this.form = { name: '', phone: '', hora: ''};
             this.selectedOrder = null;
         } else {
           throw new Error(result.message || 'Error al agregar pedido');
@@ -190,7 +207,7 @@ methods: {
 async notificationForm() {
     this.submitForm();
     const numero = 58166694;
-    const mensaje = `Hola, soy **${this.form.name}**, realicé un pedido de ${this.selectedOrder.Menu}, me podrías indicar a qué hora puedo recogerlo.`;
+    const mensaje = `Hola, soy *${this.form.name}*, realicé un pedido de ${this.selectedOrder.Menu}, estaría recogiendolo a las ${this.form.hora}`;
     const url = `https://wa.me/502${numero}?text=${mensaje}`; // estructura correcta del link
     console.log(url);
     window.open(url, '_blank'); // abre en nueva pestaña
@@ -201,6 +218,23 @@ async notificationForm() {
       this.showFormNotification = false;
       this.form = { name: '', phone: '' };
       this.selectedOrder = null;
+    },
+
+
+    generarHoras() {
+      const horas = [];
+      const inicio = 8 * 60;
+      const fin = 18 * 60;
+
+      for (let min = inicio; min <= fin; min += 30) {
+        const hora = Math.floor(min / 60);
+        const minuto = min % 60;
+        const hora12 = hora % 12 === 0 ? 12 : hora % 12;
+        const ampm = hora < 12 ? 'AM' : 'PM';
+        horas.push(`${hora12}:${minuto.toString().padStart(2, '0')} ${ampm}`);
+      }
+
+      this.horaPedido   = horas;
     },
  async changeNotification() {
 
@@ -225,6 +259,7 @@ async loadMenu() {
 
   mounted() {
   this.loadMenu();
+  this.generarHoras();
 }
 }
 </script>
