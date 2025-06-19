@@ -114,8 +114,11 @@ export default {
         horaEntrega: ''
       },
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       menuOptions: [], 
 =======
+=======
+>>>>>>> Stashed changes
       horasDisponibles: [],
       menuOptions: [],
 >>>>>>> Stashed changes
@@ -144,6 +147,9 @@ export default {
       }
     },
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     async loadOrdersFromApi() {
       try {
@@ -158,8 +164,11 @@ export default {
           .map(order => ({
             id: order.orderId,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
             title: `Menú ${order.menu} - ${order.cliente} - pendiente`
 =======
+=======
+>>>>>>> Stashed changes
             title: `${order.menu} - ${order.cliente} - ${order.telefono} - ${order.horaEntrega}`,
             estado: order.estado
 >>>>>>> Stashed changes
@@ -170,8 +179,11 @@ export default {
           .map(order => ({
             id: order.orderId,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
             title: `Menú ${order.menu} - ${order.cliente} - entregado`
 =======
+=======
+>>>>>>> Stashed changes
             title: `${order.menu} - ${order.cliente} - ${order.horaEntrega}`,
             estado: order.estado
 >>>>>>> Stashed changes
@@ -237,7 +249,12 @@ export default {
           const newOrder = {
             id: result.orderId,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
             title: `Menú ${payload.menu} - ${payload.cliente} - pendiente`
+=======
+            title: `${payload.menu} - ${payload.cliente} - ${payload.horaEntrega}`,
+            estado: 'pendiente'
+>>>>>>> Stashed changes
 =======
             title: `${payload.menu} - ${payload.cliente} - ${payload.horaEntrega}`,
             estado: 'pendiente'
@@ -269,12 +286,17 @@ export default {
     },
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     async onDragEnd(evt, toColIndex, fromColName) {
       const movedOrder = this.columns[toColIndex].orders[evt.newIndex];
       const newEstado = this.columns[toColIndex].name.toLowerCase();
       const orderId = movedOrder.id;
 
       if (fromColName === 'Entregados' && newEstado === 'pendientes') {
+=======
+    async markAsDelivered(order, colIndex, orderIndex) {
+      try {
+>>>>>>> Stashed changes
 =======
     async markAsDelivered(order, colIndex, orderIndex) {
       try {
@@ -295,12 +317,15 @@ export default {
       }
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       try {
         await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId, estado: newEstado })
 =======
+=======
+>>>>>>> Stashed changes
         const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -337,6 +362,7 @@ export default {
     },
 
     async deleteOrder(colIndex, orderIndex) {
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
       const confirmed = await Swal.fire({
         title: '¿Estás seguro de eliminar el pedido?',
@@ -379,6 +405,35 @@ export default {
 
         this.columns[colIndex].orders.splice(orderIndex, 1);
 
+=======
+      try {
+        const order = this.columns[colIndex].orders[orderIndex];
+
+        const confirmed = await Swal.fire({
+          title: '¿Estás seguro de eliminar el pedido?',
+          text: `Pedido: ${order.title}`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, eliminar',
+          cancelButtonText: 'Cancelar',
+        });
+
+        if (!confirmed.isConfirmed) return;
+
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            orderId: order.id, 
+            estado: 'eliminado' 
+          })
+        });
+
+        if (!response.ok) throw new Error('Error al actualizar el estado');
+
+        this.columns[colIndex].orders.splice(orderIndex, 1);
+
+>>>>>>> Stashed changes
         if (this.editingId === order.id) this.cancelEdit();
 
         Swal.fire({
@@ -396,6 +451,9 @@ export default {
           title: 'Error',
           text: 'No se pudo eliminar el pedido',
         });
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
       }
     },
