@@ -10,6 +10,7 @@
 
       <button type="submit" :disabled="loading">{{ loading ? 'Ingresando...' : 'Entrar' }}</button>
     </form>
+    <button type="button" @click="goToMenu">Ir al Menú Principal</button>
   </div>
 </template>
 
@@ -61,6 +62,9 @@ export default {
         this.loading = false;
       }
     },
+    goToMenu() {
+      this.$router.push('/menu');
+    }
   },
 };
 </script>

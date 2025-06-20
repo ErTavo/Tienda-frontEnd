@@ -17,10 +17,22 @@
             </option>
           </select>
         </label>
+
         <label>
           Nombre:
           <input type="text" v-model="form.name" placeholder="Nombre" />
         </label>
+
+        <label>
+          Hora de entrega:
+          <select v-model="form.horaEntrega">
+            <option disabled value="">Seleccione una hora</option>
+            <option v-for="hora in horasDisponibles" :key="hora" :value="hora">
+              {{ hora }}
+            </option>
+          </select>
+        </label>
+
         <div class="form-buttons">
           <button @click="submitForm">Agregar</button>
           <button @click="cancelForm">Cancelar</button>
@@ -42,7 +54,6 @@
                 {{ order.title }}
               </span>
               <div class="order-actions">
-                <!-- Botón de check solo para pendientes -->
                 <button v-if="column.name === 'Pendientes'" 
                         @click="markAsDelivered(order, colIndex, index)"
                         class="check-btn"
@@ -73,8 +84,10 @@ export default {
       showForm: false,
       form: {
         menu: '',
-        name: ''
+        name: '',
+        horaEntrega: ''
       },
+      horasDisponibles: [],
       menuOptions: [],
       editingId: null,
       editTitle: '',
@@ -98,6 +111,7 @@ export default {
         this.$router.push('/');
       }
     },
+
     async loadOrdersFromApi() {
       try {
         const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders");
@@ -110,7 +124,7 @@ export default {
           .filter(order => order.estado === "pendiente")
           .map(order => ({
             id: order.orderId,
-            title: `${order.menu} - ${order.cliente} - ${order.telefono}`,
+            title: `${order.menu} - ${order.cliente} - ${order.horaEntrega}`,
             estado: order.estado
           }));
 
@@ -118,7 +132,7 @@ export default {
           .filter(order => order.estado === "entregado")
           .map(order => ({
             id: order.orderId,
-            title: `${order.menu} - ${order.cliente}`,
+            title: `${order.menu} - ${order.cliente} - ${order.horaEntrega}`,
             estado: order.estado
           }));
       } catch (error) {
@@ -141,15 +155,32 @@ export default {
       }
     },
 
+    generarHoras() {
+      const horas = [];
+      const inicio = 8 * 60;
+      const fin = 18 * 60;
+
+      for (let min = inicio; min <= fin; min += 30) {
+        const hora = Math.floor(min / 60);
+        const minuto = min % 60;
+        const hora12 = hora % 12 === 0 ? 12 : hora % 12;
+        const ampm = hora < 12 ? 'AM' : 'PM';
+        horas.push(`${hora12}:${minuto.toString().padStart(2, '0')} ${ampm}`);
+      }
+
+      this.horasDisponibles = horas;
+    },
+
     async submitForm() {
-      if (!this.form.menu || !this.form.name) return;
+      if (!this.form.menu || !this.form.name || !this.form.horaEntrega) return;
 
       const payload = {
         menu: this.form.menu,
         descripcion: `Pedido de menú ${this.form.menu}`,
         precio: "20",
         cliente: this.form.name,
-        telefono: "00000000"
+        telefono: "00000000",
+        horaEntrega: this.form.horaEntrega
       };
 
       try {
@@ -168,7 +199,7 @@ export default {
           };
           this.columns[0].orders.push(newOrder);
           this.showForm = false;
-          this.form = { menu: '', name: '' };
+          this.form = { menu: '', name: '', horaEntrega: '' };
 
           Swal.fire({
             icon: 'success',
@@ -188,12 +219,11 @@ export default {
 
     cancelForm() {
       this.showForm = false;
-      this.form = { menu: '', name: '' };
+      this.form = { menu: '', name: '', horaEntrega: '' };
     },
 
-async markAsDelivered(order, colIndex, orderIndex) {
+    async markAsDelivered(order, colIndex, orderIndex) {
       try {
-        // Confirmar con SweetAlert
         const confirmed = await Swal.fire({
           title: '¿Marcar como entregado?',
           text: `¿Confirmas que el pedido "${order.title}" ha sido entregado?`,
@@ -205,7 +235,6 @@ async markAsDelivered(order, colIndex, orderIndex) {
 
         if (!confirmed.isConfirmed) return;
 
-        // Actualizar backend
         const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -215,18 +244,13 @@ async markAsDelivered(order, colIndex, orderIndex) {
           })
         });
 
-        if (!response.ok) {
-          throw new Error(`Error HTTP: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
-        // Actualizar UI
         const deliveredOrder = {
           ...order,
-          title: order.title.replace(/- pendiente$/i, '').trim() + '',
           estado: 'entregado'
         };
 
-        // Eliminar de pendientes y agregar a entregados
         this.columns[0].orders.splice(orderIndex, 1);
         this.columns[1].orders.push(deliveredOrder);
 
@@ -248,74 +272,53 @@ async markAsDelivered(order, colIndex, orderIndex) {
       }
     },
 
-// Método auxiliar para revertir el drag
-revertDrag(evt, fromColumn, toColumn) {
-  if (!fromColumn || !toColumn || !evt) return;
-  
-  try {
-    const item = toColumn.orders.splice(evt.newIndex, 1)[0];
-    if (item && fromColumn.orders) {
-      fromColumn.orders.splice(evt.oldIndex, 0, item);
-    }
-  } catch (e) {
-    console.error('Error al revertir movimiento:', e);
-  }
-},
-
     async deleteOrder(colIndex, orderIndex) {
-  try {
-    const order = this.columns[colIndex].orders[orderIndex];
-    
-    const confirmed = await Swal.fire({
-      title: '¿Estás seguro de eliminar el pedido?',
-      text: `Pedido: ${order.title}`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar',
-    });
+      try {
+        const order = this.columns[colIndex].orders[orderIndex];
 
-    if (!confirmed.isConfirmed) return;
+        const confirmed = await Swal.fire({
+          title: '¿Estás seguro de eliminar el pedido?',
+          text: `Pedido: ${order.title}`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, eliminar',
+          cancelButtonText: 'Cancelar',
+        });
 
-    // Actualizar estado en el backend a "eliminado"
-    const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        orderId: order.id, 
-        estado: 'eliminado' 
-      })
-    });
+        if (!confirmed.isConfirmed) return;
 
-    if (!response.ok) {
-      throw new Error('Error al actualizar el estado');
-    }
+        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            orderId: order.id, 
+            estado: 'eliminado' 
+          })
+        });
 
-    // Eliminar de la lista local solo si la API respondió correctamente
-    this.columns[colIndex].orders.splice(orderIndex, 1);
-    
-    // Limpiar edición si estaba editando este elemento
-    if (this.editingId === order.id) {
-      this.cancelEdit();
-    }
+        if (!response.ok) throw new Error('Error al actualizar el estado');
 
-    Swal.fire({
-      icon: 'success',
-      title: 'Pedido eliminado',
-      text: 'El pedido se ha marcado como eliminado',
-      timer: 1500,
-      showConfirmButton: false
-    });
+        this.columns[colIndex].orders.splice(orderIndex, 1);
 
-  } catch (error) {
-    console.error("Error al eliminar pedido:", error);
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: 'No se pudo eliminar el pedido',
-    });
-  }
-},
+        if (this.editingId === order.id) this.cancelEdit();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Pedido eliminado',
+          text: 'El pedido se ha marcado como eliminado',
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+      } catch (error) {
+        console.error("Error al eliminar pedido:", error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo eliminar el pedido',
+        });
+      }
+    },
 
     startEdit(order) {
       this.editingId = order.id;
@@ -349,6 +352,7 @@ revertDrag(evt, fromColumn, toColumn) {
   mounted() {
     this.loadOrdersFromApi();
     this.loadMenu();
+    this.generarHoras();
   }
 };
 </script>
@@ -428,12 +432,10 @@ select:focus,
   flex-direction: column;
 }
 
-/* Columna 1 (Pendientes) */
 .column:nth-child(1) {
   background-color: #fdfdfd;
 }
 
-/* Columna 2 (Entregados) */
 .column:nth-child(2) {
   background-color: #fdfdfd;
 }
@@ -513,7 +515,6 @@ select:focus,
   transition: border-color 0.3s ease;
 }
 
-/* Formulario */
 .form-overlay {
   position: fixed;
   top: 0;
