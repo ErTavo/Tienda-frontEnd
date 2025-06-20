@@ -174,6 +174,8 @@ export default {
     async submitForm() {
       if (!this.form.menu || !this.form.name || !this.form.horaEntrega) return;
 
+      
+
       const payload = {
         menu: this.form.menu,
         descripcion: `Pedido de menú ${this.form.menu}`,
@@ -195,7 +197,8 @@ export default {
         if (response.ok) {
           const newOrder = {
             id: result.orderId,
-            title: `${payload.menu} - ${payload.cliente}`
+            title: `${payload.menu} - ${payload.cliente} - ${payload.horaEntrega}`,
+            estado: 'pendiente'
           };
           this.columns[0].orders.push(newOrder);
           this.showForm = false;

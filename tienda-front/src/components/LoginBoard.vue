@@ -121,6 +121,7 @@ button {
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  margin-top: 10px;
 }
 
 button:disabled {
@@ -131,5 +132,12 @@ button:disabled {
 button:hover:not(:disabled) {
   background-color: #4b57a1;
 }
-</style>
 
+.menu-btn {
+  background-color: #888;
+}
+
+.menu-btn:hover {
+  background-color: #666;
+}
+</style>
