@@ -12,8 +12,8 @@
           Menú:
           <select v-model="form.menu">
             <option disabled value="">Seleccione una opción</option>
-            <option v-for="item in menuOptions" :key="item.id" :value="item.id">
-              {{ item.nombre }}
+            <option v-for="item in menuOptions" :key="item.Menu" :value="item.Menu">
+              {{ item.Menu }}
             </option>
           </select>
         </label>
@@ -43,68 +43,40 @@
     <div class="columns">
       <div class="column" v-for="(column, colIndex) in columns" :key="colIndex">
         <h2>{{ column.name }}</h2>
-<<<<<<< Updated upstream
-        <Draggable
-          v-model="column.orders"
-          :group="{ name: 'orders', pull: true, put: true }"
-          class="order-list"
-          @end="onDragEnd($event, colIndex, column.name)"
-          itemKey="id"
-        >
-          <template #item="{ element, index }">
-            <div class="order-card" :key="element.id">
-              <template v-if="isEditing(element.id)">
-                <input
-                  v-model="editTitle"
-                  @keyup.enter="saveEdit(element)"
-                  @keyup.esc="cancelEdit"
-                  @blur="saveEdit(element)"
-                  class="edit-input"
-                  ref="editInput"
-                  aria-label="Editar pedido"
-                />
-              </template>
-              <template v-else>
-                <span @dblclick="startEdit(element)" tabindex="0" @keydown.enter="startEdit(element)">
-                  {{ element.title }}
-                </span>
-=======
         <div class="order-list">
           <div class="order-card" v-for="(order, index) in column.orders" :key="order.id">
             <template v-if="isEditing(order.id)">
-              <input v-model="editTitle" @keyup.enter="saveEdit(order)" @keyup.esc="cancelEdit"
-                @blur="saveEdit(order)" class="edit-input" ref="editInput" aria-label="Editar pedido" />
+              <input v-model="editTitle" @keyup.enter="saveEdit(order)" @keyup.esc="cancelEdit" @blur="saveEdit(order)"
+                class="edit-input" ref="editInput" aria-label="Editar pedido" />
             </template>
             <template v-else>
               <span @dblclick="startEdit(order)" tabindex="0" @keydown.enter="startEdit(order)">
                 {{ order.title }}
               </span>
               <div class="order-actions">
-                <button v-if="column.name === 'Pendientes'" 
-                        @click="markAsDelivered(order, colIndex, index)"
-                        class="check-btn"
-                        aria-label="Marcar como entregado">
+                <button v-if="column.name === 'Pendientes'" @click="markAsDelivered(order, colIndex, index)"
+                  class="check-btn" aria-label="Marcar como entregado">
                   ✓
                 </button>
->>>>>>> Stashed changes
                 <button class="delete-btn" @click="deleteOrder(colIndex, index)" aria-label="Eliminar pedido">
                   ×
                 </button>
-              </template>
-            </div>
-          </template>
-        </Draggable>
+              </div>
+            </template>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import Draggable from "vuedraggable";
 import Swal from "sweetalert2";
 
 export default {
-  components: { Draggable },
+  created() {
+    this.verifyAuth();
+  },
   data() {
     return {
       showForm: false,
@@ -113,15 +85,8 @@ export default {
         name: '',
         horaEntrega: ''
       },
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      menuOptions: [], 
-=======
-=======
->>>>>>> Stashed changes
       horasDisponibles: [],
       menuOptions: [],
->>>>>>> Stashed changes
       editingId: null,
       editTitle: '',
       columns: [
@@ -138,8 +103,6 @@ export default {
   },
 
   methods: {
-<<<<<<< Updated upstream
-=======
     verifyAuth() {
       const authToken = sessionStorage.getItem('authToken');
       if (!authToken) {
@@ -147,10 +110,6 @@ export default {
       }
     },
 
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     async loadOrdersFromApi() {
       try {
         const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders");
@@ -163,30 +122,16 @@ export default {
           .filter(order => order.estado === "pendiente")
           .map(order => ({
             id: order.orderId,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-            title: `Menú ${order.menu} - ${order.cliente} - pendiente`
-=======
-=======
->>>>>>> Stashed changes
-            title: `${order.menu} - ${order.cliente} - ${order.telefono} - ${order.horaEntrega}`,
+            title: `${order.menu} - ${order.cliente} - ${order.horaEntrega}`,
             estado: order.estado
->>>>>>> Stashed changes
           }));
 
         this.columns[1].orders = data
           .filter(order => order.estado === "entregado")
           .map(order => ({
             id: order.orderId,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-            title: `Menú ${order.menu} - ${order.cliente} - entregado`
-=======
-=======
->>>>>>> Stashed changes
             title: `${order.menu} - ${order.cliente} - ${order.horaEntrega}`,
             estado: order.estado
->>>>>>> Stashed changes
           }));
       } catch (error) {
         console.error("Error cargando pedidos:", error);
@@ -248,17 +193,7 @@ export default {
         if (response.ok) {
           const newOrder = {
             id: result.orderId,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-            title: `Menú ${payload.menu} - ${payload.cliente} - pendiente`
-=======
-            title: `${payload.menu} - ${payload.cliente} - ${payload.horaEntrega}`,
-            estado: 'pendiente'
->>>>>>> Stashed changes
-=======
-            title: `${payload.menu} - ${payload.cliente} - ${payload.horaEntrega}`,
-            estado: 'pendiente'
->>>>>>> Stashed changes
+            title: `${payload.menu} - ${payload.cliente}`
           };
           this.columns[0].orders.push(newOrder);
           this.showForm = false;
@@ -285,53 +220,25 @@ export default {
       this.form = { menu: '', name: '', horaEntrega: '' };
     },
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    async onDragEnd(evt, toColIndex, fromColName) {
-      const movedOrder = this.columns[toColIndex].orders[evt.newIndex];
-      const newEstado = this.columns[toColIndex].name.toLowerCase();
-      const orderId = movedOrder.id;
-
-      if (fromColName === 'Entregados' && newEstado === 'pendientes') {
-=======
     async markAsDelivered(order, colIndex, orderIndex) {
       try {
->>>>>>> Stashed changes
-=======
-    async markAsDelivered(order, colIndex, orderIndex) {
-      try {
->>>>>>> Stashed changes
         const confirmed = await Swal.fire({
-          title: '¿Seguro que deseas moverlo a Pendiente?',
-          icon: 'warning',
+          title: '¿Marcar como entregado?',
+          text: `¿Confirmas que el pedido "${order.title}" ha sido entregado?`,
+          icon: 'question',
           showCancelButton: true,
-          confirmButtonText: 'Sí',
-          cancelButtonText: 'No',
+          confirmButtonText: 'Sí, entregado',
+          cancelButtonText: 'Cancelar',
         });
 
-        if (!confirmed.isConfirmed) {
-          const item = this.columns[toColIndex].orders.splice(evt.newIndex, 1)[0];
-          this.columns.find(col => col.name === fromColName).orders.splice(evt.oldIndex, 0, item);
-          return;
-        }
-      }
+        if (!confirmed.isConfirmed) return;
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      try {
-        await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId, estado: newEstado })
-=======
-=======
->>>>>>> Stashed changes
         const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            orderId: order.id, 
-            estado: 'entregado' 
+          body: JSON.stringify({
+            orderId: order.id,
+            estado: 'entregado'
           })
         });
 
@@ -351,33 +258,19 @@ export default {
           text: 'El pedido se marcó como entregado',
           timer: 1500,
           showConfirmButton: false
->>>>>>> Stashed changes
         });
 
-        movedOrder.title = movedOrder.title.replace(/pendiente|entregado/i, newEstado);
       } catch (error) {
-        console.error("Error al actualizar estado:", error);
-        Swal.fire('Error', 'No se pudo actualizar el estado', 'error');
+        console.error("Error al marcar como entregado:", error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error.message || 'No se pudo actualizar el estado',
+        });
       }
     },
 
     async deleteOrder(colIndex, orderIndex) {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      const confirmed = await Swal.fire({
-        title: '¿Estás seguro de eliminar el pedido?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí',
-        cancelButtonText: 'No',
-      });
-
-      if (confirmed.isConfirmed) {
-        this.columns[colIndex].orders.splice(orderIndex, 1);
-        if (this.editingId && !this.columns.some(col => col.orders.find(o => o.id === this.editingId))) {
-          this.cancelEdit();
-        }
-=======
       try {
         const order = this.columns[colIndex].orders[orderIndex];
 
@@ -395,9 +288,9 @@ export default {
         const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            orderId: order.id, 
-            estado: 'eliminado' 
+          body: JSON.stringify({
+            orderId: order.id,
+            estado: 'eliminado'
           })
         });
 
@@ -405,35 +298,6 @@ export default {
 
         this.columns[colIndex].orders.splice(orderIndex, 1);
 
-=======
-      try {
-        const order = this.columns[colIndex].orders[orderIndex];
-
-        const confirmed = await Swal.fire({
-          title: '¿Estás seguro de eliminar el pedido?',
-          text: `Pedido: ${order.title}`,
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonText: 'Sí, eliminar',
-          cancelButtonText: 'Cancelar',
-        });
-
-        if (!confirmed.isConfirmed) return;
-
-        const response = await fetch("https://tienda-mu-nine.vercel.app/api/orders", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            orderId: order.id, 
-            estado: 'eliminado' 
-          })
-        });
-
-        if (!response.ok) throw new Error('Error al actualizar el estado');
-
-        this.columns[colIndex].orders.splice(orderIndex, 1);
-
->>>>>>> Stashed changes
         if (this.editingId === order.id) this.cancelEdit();
 
         Swal.fire({
@@ -451,10 +315,6 @@ export default {
           title: 'Error',
           text: 'No se pudo eliminar el pedido',
         });
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
       }
     },
 
@@ -494,6 +354,7 @@ export default {
   }
 };
 </script>
+
 
 
 
@@ -686,6 +547,7 @@ select:focus,
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -730,16 +592,18 @@ select:focus,
     flex-direction: column;
     gap: 20px;
   }
+
   .column {
     max-width: 100%;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   }
+
   .add-order {
     flex-direction: column;
   }
+
   .add-order button {
     width: 100%;
   }
 }
 </style>
-
